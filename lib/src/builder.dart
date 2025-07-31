@@ -3,9 +3,8 @@ import 'package:build/build.dart';
 import 'package:code_builder/code_builder.dart';
 import 'package:dart_style/dart_style.dart';
 import 'package:pub_semver/pub_semver.dart';
+import 'package:socket_io_client_gen_annotations/socket_io_client_gen_annotations.dart';
 import 'package:source_gen/source_gen.dart' as sg;
-
-import 'annotations.dart';
 
 Builder socketBuilder(BuilderOptions options) =>
     sg.LibraryBuilder(SocketBuilder(), generatedExtension: '.socket.dart');

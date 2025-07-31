@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:socket_io_client/socket_io_client.dart';
-import 'package:socket_io_client_generator/socket_io_client_generator.dart';
+import 'package:socket_io_client_gen_annotations/socket_io_client_gen_annotations.dart';
 
 part 'chat_socket.socket.dart';
 
