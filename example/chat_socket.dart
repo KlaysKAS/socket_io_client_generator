@@ -3,88 +3,91 @@ import 'dart:async';
 import 'package:socket_io_client/socket_io_client.dart';
 import 'package:socket_io_client_gen_annotations/socket_io_client_gen_annotations.dart';
 
+import 'models/models.dart';
+
 part 'chat_socket.socket.dart';
 
-/// Example message model with fromJson/toJson methods
-class ChatMessage {
-  final int id;
-  final String text;
-  final String sender;
-  final DateTime timestamp;
-
-  ChatMessage({
-    required this.id,
-    required this.text,
-    required this.sender,
-    required this.timestamp,
-  });
-
-  factory ChatMessage.fromJson(Map<String, dynamic> json) {
-    return ChatMessage(
-      id: int.parse(json['id'].toString()),
-      text: json['text'] as String,
-      sender: json['sender'] as String,
-      timestamp: DateTime.parse(json['timestamp'] as String),
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'text': text,
-      'sender': sender,
-      'timestamp': timestamp.toIso8601String(),
-    };
-  }
-}
-
-/// Example user model
-class User {
-  final String id;
-  final String username;
-  final String avatar;
-
-  User({
-    required this.id,
-    required this.username,
-    required this.avatar,
-  });
-
-  factory User.fromJson(Map<String, dynamic> json) {
-    return User(
-      id: json['id'] as String,
-      username: json['username'] as String,
-      avatar: json['avatar'] as String,
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'username': username,
-      'avatar': avatar,
-    };
-  }
-}
-
 /// Abstract class that will be used to generate concrete implementation
-/// This class will be used to generate the concrete implementation
+/// This class showcases all supported stream types
 @SocketIO()
 abstract class ChatSocketSystem {
   factory ChatSocketSystem(Socket socket) = _ChatSocketSystem;
 
-  /// Listen to new messages
+  // ===== STREAM<T> - Single object parsing =====
+  /// Listen to new messages - parses single ChatMessage
   @SocketIOListener('new-message')
   Stream<ChatMessage> listenNewMessages();
 
-  /// Listen to user joined events
+  /// Listen to user joined events - parses single User
   @SocketIOListener('user-joined')
   Stream<User> listenUserJoined();
 
-  /// Listen to user left events
+  /// Listen to user left events - parses single User
   @SocketIOListener('user-left')
   Stream<User> listenUserLeft();
 
+  // ===== STREAM<List<T>> - List of objects parsing =====
+  /// Listen to user list updates - parses List<User>
+  @SocketIOListener('user-list-update')
+  Stream<List<User>> listenUserListUpdate();
+
+  /// Listen to message history - parses List<ChatMessage>
+  @SocketIOListener('message-history')
+  Stream<List<ChatMessage>> listenMessageHistory();
+
+  /// Listen to notification list - parses List<Notification>
+  @SocketIOListener('notification-list')
+  Stream<List<Notification>> listenNotificationList();
+
+  // ===== STREAM<dynamic> - Raw data without transformation =====
+  /// Listen to raw system events - passes through any data type
+  @SocketIOListener('system-event')
+  Stream<dynamic> listenSystemEvents();
+
+  /// Listen to debug information - passes through any data type
+  @SocketIOListener('debug-info')
+  Stream<dynamic> listenDebugInfo();
+
+  // ===== STREAM<void> - Event-only notifications =====
+  /// Listen to typing indicators - only cares about event occurrence
+  @SocketIOListener('user-typing')
+  Stream<void> listenUserTyping();
+
+  /// Listen to connection status changes - only cares about event occurrence
+  @SocketIOListener('connection-status')
+  Stream<void> listenConnectionStatus();
+
+  /// Listen to room join/leave events - only cares about event occurrence
+  @SocketIOListener('room-event')
+  Stream<void> listenRoomEvents();
+
+  // ===== STREAM<PRIMITIVE> - Primitive values pass-through =====
+  /// Listen to server version - parses String primitive
+  @SocketIOListener('server-version')
+  Stream<String> listenServerVersion();
+
+  /// Listen to ping counter - parses int primitive
+  @SocketIOListener('ping-count')
+  Stream<int> listenPingCount();
+
+  /// Listen to CPU load - parses double primitive
+  @SocketIOListener('cpu-load')
+  Stream<double> listenCpuLoad();
+
+  /// Listen to feature flag - parses bool primitive
+  @SocketIOListener('feature-flag')
+  Stream<bool> listenFeatureFlag();
+
+  // ===== STREAM<List<PRIMITIVE>> - Lists of primitive values pass-through =====
+  /// Listen to tags - parses List<String>
+  @SocketIOListener('tags')
+  Stream<List<String>> listenTags();
+
+  /// Listen to scores - parses List<int>
+  @SocketIOListener('scores')
+  Stream<List<int>> listenScores();
+
+  // ===== EMITTERS =====
   /// Emit new message
   @SocketIOEmitter('create-message')
   void emitNewMessage(ChatMessage message);
@@ -92,4 +95,16 @@ abstract class ChatSocketSystem {
   /// Emit user join
   @SocketIOEmitter('join-chat')
   void emitJoinChat(User user);
+
+  /// Emit user leave
+  @SocketIOEmitter('leave-chat')
+  void emitLeaveChat(User user);
+
+  /// Emit typing indicator
+  @SocketIOEmitter('typing')
+  void emitTyping(String userId);
+
+  /// Emit raw data
+  @SocketIOEmitter('raw-data')
+  void emitRawData(dynamic data);
 } 
