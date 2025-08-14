@@ -95,7 +95,12 @@ class SocketBuilder extends sg.GeneratorForAnnotation<SocketIO> {
     final emitter = DartEmitter();
     final code = library.accept(emitter).toString();
     final formatter = DartFormatter(languageVersion: Version(3, 8, 0));
-    return formatter.format(code);
+    final header = '''// coverage:ignore-file
+// GENERATED CODE - DO NOT MODIFY BY HAND
+// ignore_for_file: type=lint
+// ignore_for_file: unused_element, deprecated_member_use, deprecated_member_use_from_same_package, use_function_type_syntax_for_parameters, unnecessary_const, avoid_init_to_null, invalid_override_different_default_values_named, prefer_expression_function_bodies, annotate_overrides, invalid_annotation_target, unnecessary_question_mark
+''';
+    return formatter.format('$header$code');
   }
 
   SocketIOListener? _getSocketListenerAnnotation(MethodElement method) {
@@ -128,33 +133,138 @@ class SocketBuilder extends sg.GeneratorForAnnotation<SocketIO> {
         element: method,
       );
     }
+    
     final genericType = returnType.toString().substring(7, returnType.toString().length - 1);
+    
+    // Handle different generic types
+    if (genericType == 'void') {
+      return _generateVoidListenerMethod(method, annotation);
+    } else if (genericType == 'dynamic') {
+      return _generateDynamicListenerMethod(method, annotation);
+    } else if (_isPrimitiveTypeName(genericType)) {
+      return _generatePrimitiveListenerMethod(method, annotation, genericType);
+    } else if (genericType.startsWith('List<')) {
+      return _generateListListenerMethod(method, annotation, genericType);
+    } else {
+      return _generateTypedListenerMethod(method, annotation, genericType);
+    }
+  }
+
+  Code _generateUnifiedListenerBody(String genericType, String event, String dataProcessingStrategy) {
+    return Code('''
+      const eventName = '$event';
+      final controller = StreamController<$genericType>();
+      
+      dynamic listener(dynamic data) {
+        $dataProcessingStrategy
+      }
+      
+      _socket.on(eventName, listener);
+      
+      controller.onCancel = () {
+        _socket.off(eventName, listener);
+        controller.close();
+      };
+      
+      return controller.stream;
+    ''');
+  }
+
+  Method _generateVoidListenerMethod(MethodElement method, SocketIOListener annotation) {
+    return Method(
+      (b) => b
+        ..name = method.name
+        ..returns = refer('Stream<void>')
+        ..annotations.add(refer('override'))
+        ..body = _generateUnifiedListenerBody('void', annotation.event, 'controller.add(null);'),
+    );
+  }
+
+  Method _generateDynamicListenerMethod(MethodElement method, SocketIOListener annotation) {
+    return Method(
+      (b) => b
+        ..name = method.name
+        ..returns = refer('Stream<dynamic>')
+        ..annotations.add(refer('override'))
+        ..body = _generateUnifiedListenerBody('dynamic', annotation.event, 'controller.add(data);'),
+    );
+  }
+
+  Method _generatePrimitiveListenerMethod(MethodElement method, SocketIOListener annotation, String genericType) {
     return Method(
       (b) => b
         ..name = method.name
         ..returns = refer('Stream<$genericType>')
         ..annotations.add(refer('override'))
-        ..body = Code('''
-        final eventName = '${annotation.event}';
-        final controller = StreamController<$genericType>();
-        
-        dynamic listener(dynamic data) {
+        ..body = _generateUnifiedListenerBody(genericType, annotation.event, '''
+          if (data is $genericType) {
+            controller.add(data);
+          } else {
+            controller.addError(ArgumentError('Expected $genericType but got \${data.runtimeType}'));
+          }
+        '''),
+    );
+  }
+
+  Method _generateListListenerMethod(MethodElement method, SocketIOListener annotation, String genericType) {
+    final listGenericType = genericType.substring(5, genericType.length - 1);
+    final isPrimitiveList = _isPrimitiveTypeName(listGenericType) || listGenericType == 'dynamic' || listGenericType == 'Map<String, dynamic>';
+    return Method(
+      (b) => b
+        ..name = method.name
+        ..returns = refer('Stream<$genericType>')
+        ..annotations.add(refer('override'))
+        ..body = _generateUnifiedListenerBody(genericType, annotation.event, isPrimitiveList
+            ? '''
+          if (data is List) {
+            try {
+              final result = data.cast<$listGenericType>().toList();
+              controller.add(result);
+            } catch (e) {
+              controller.addError(e);
+            }
+          } else {
+            controller.addError(ArgumentError('Expected List but got \${data.runtimeType}'));
+          }
+        '''
+            : '''
+          if (data is List) {
+            try {
+              final result = data.map((item) {
+                if (item is Map<String, dynamic>) {
+                  return $listGenericType.fromJson(item);
+                } else {
+                  throw ArgumentError('Expected Map<String, dynamic> in list but got \${item.runtimeType}');
+                }
+              }).toList();
+              controller.add(result);
+            } catch (e) {
+              controller.addError(e);
+            }
+          } else {
+            controller.addError(ArgumentError('Expected List but got \${data.runtimeType}'));
+          }
+        '''),
+    );
+  }
+
+  Method _generateTypedListenerMethod(MethodElement method, SocketIOListener annotation, String genericType) {
+    return Method(
+      (b) => b
+        ..name = method.name
+        ..returns = refer('Stream<$genericType>')
+        ..annotations.add(refer('override'))
+        ..body = _generateUnifiedListenerBody(genericType, annotation.event, '''
           if (data is Map<String, dynamic>) {
-            controller.add($genericType.fromJson(data));
+            try {
+              controller.add($genericType.fromJson(data));
+            } catch (e) {
+              controller.addError(e);
+            }
           } else {
             controller.addError(ArgumentError('Expected Map<String, dynamic> but got \${data.runtimeType}'));
           }
-        }
-        
-        _socket.on(eventName, listener);
-        
-        controller.onCancel = () {
-          _socket.off(eventName, listener);
-          controller.close();
-        };
-        
-        return controller.stream;
-      '''),
+        '''),
     );
   }
 
@@ -167,6 +277,18 @@ class SocketBuilder extends sg.GeneratorForAnnotation<SocketIO> {
     }
     final parameter = method.parameters.first;
     final parameterType = parameter.type.toString();
+    final parameterTypeNoNullability = parameter.type.getDisplayString(withNullability: false);
+    final isPrimitive = parameterTypeNoNullability == 'String' ||
+        parameterTypeNoNullability == 'bool' ||
+        parameterTypeNoNullability == 'int' ||
+        parameterTypeNoNullability == 'double' ||
+        parameterTypeNoNullability == 'num' ||
+        parameterTypeNoNullability == 'dynamic';
+    final isMapOrList = parameterTypeNoNullability.startsWith('Map<') ||
+        parameterTypeNoNullability.startsWith('List<');
+    final emitArgument = (isPrimitive || isMapOrList)
+        ? parameter.name
+        : '${parameter.name}.toJson()';
     return Method(
       (b) => b
         ..name = method.name
@@ -180,8 +302,16 @@ class SocketBuilder extends sg.GeneratorForAnnotation<SocketIO> {
           ),
         )
         ..body = Code('''
-        _socket.emit('${annotation.event}', ${parameter.name}.toJson());
+        _socket.emit('${annotation.event}', $emitArgument);
       '''),
     );
+  }
+
+  bool _isPrimitiveTypeName(String typeName) {
+    return typeName == 'String' ||
+        typeName == 'bool' ||
+        typeName == 'int' ||
+        typeName == 'double' ||
+        typeName == 'num';
   }
 }

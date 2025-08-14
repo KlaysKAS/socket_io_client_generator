@@ -1,6 +1,6 @@
 name: socket_io_client_generator
 description: "Socket io client generator for Flutter - generates files that subscribe to Socket.IO events and redirect them to streams"
-version: 0.0.1
+version: 0.0.3
 publish_to: 'none'
 homepage:
 
