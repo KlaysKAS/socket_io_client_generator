@@ -20,7 +20,7 @@ dependencies:
       ref: v0.0.1
 
 dev_dependencies:
-  build_runner: ^2.5.4
+  build_runner: ^3.0.2
   socket_io_client_generator:
     git:
       url: https://github.com/KlaysKAS/socket_io_client_generator.git
