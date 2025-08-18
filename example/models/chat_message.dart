@@ -29,4 +29,4 @@ class ChatMessage {
       'timestamp': timestamp.toIso8601String(),
     };
   }
-} 
+}

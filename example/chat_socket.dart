@@ -107,4 +107,4 @@ abstract class ChatSocketSystem {
   /// Emit raw data
   @SocketIOEmitter('raw-data')
   void emitRawData(dynamic data);
-} 
+}

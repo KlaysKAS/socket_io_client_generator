@@ -25,4 +25,4 @@ class Notification {
       'createdAt': createdAt.toIso8601String(),
     };
   }
-} 
+}
