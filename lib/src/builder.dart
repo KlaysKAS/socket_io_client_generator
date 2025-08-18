@@ -33,6 +33,12 @@ class SocketBuilder extends sg.GeneratorForAnnotation<SocketIO> {
     }
 
     final className = element.name;
+    if (className == null) {
+      throw sg.InvalidGenerationSourceError(
+        'Class name cannot be null',
+        element: element,
+      );
+    }
     final implementationClassName = '_$className';
 
     final methods = <Method>[];
@@ -87,7 +93,9 @@ class SocketBuilder extends sg.GeneratorForAnnotation<SocketIO> {
     final library = Library((b) {
       b
         ..directives.add(
-          Directive.partOf('${buildStep.inputId.pathSegments.last.replaceAll('.dart', '')}.dart'),
+          Directive.partOf(
+            '${buildStep.inputId.pathSegments.last.replaceAll('.dart', '')}.dart',
+          ),
         )
         ..body.add(classBuilder);
     });
@@ -104,9 +112,10 @@ class SocketBuilder extends sg.GeneratorForAnnotation<SocketIO> {
   }
 
   SocketIOListener? _getSocketListenerAnnotation(MethodElement method) {
-    for (final annotation in method.metadata) {
+    for (final annotation in method.metadata.annotations) {
       final element = annotation.element;
-      if (element is ConstructorElement && element.enclosingElement3.name == 'SocketIOListener') {
+      if (element is ConstructorElement &&
+          element.enclosingElement.name == 'SocketIOListener') {
         final reader = sg.ConstantReader(annotation.computeConstantValue());
         return SocketIOListener(reader.read('event').stringValue);
       }
@@ -115,9 +124,10 @@ class SocketBuilder extends sg.GeneratorForAnnotation<SocketIO> {
   }
 
   SocketIOEmitter? _getSocketEmitterAnnotation(MethodElement method) {
-    for (final annotation in method.metadata) {
+    for (final annotation in method.metadata.annotations) {
       final element = annotation.element;
-      if (element is ConstructorElement && element.enclosingElement3.name == 'SocketIOEmitter') {
+      if (element is ConstructorElement &&
+          element.enclosingElement.name == 'SocketIOEmitter') {
         final reader = sg.ConstantReader(annotation.computeConstantValue());
         return SocketIOEmitter(reader.read('event').stringValue);
       }
@@ -125,7 +135,10 @@ class SocketBuilder extends sg.GeneratorForAnnotation<SocketIO> {
     return null;
   }
 
-  Method _generateListenerMethod(MethodElement method, SocketIOListener annotation) {
+  Method _generateListenerMethod(
+    MethodElement method,
+    SocketIOListener annotation,
+  ) {
     final returnType = method.returnType;
     if (!returnType.toString().startsWith('Stream<')) {
       throw sg.InvalidGenerationSourceError(
@@ -133,9 +146,10 @@ class SocketBuilder extends sg.GeneratorForAnnotation<SocketIO> {
         element: method,
       );
     }
-    
-    final genericType = returnType.toString().substring(7, returnType.toString().length - 1);
-    
+
+    final genericType =
+        returnType.toString().substring(7, returnType.toString().length - 1);
+
     // Handle different generic types
     if (genericType == 'void') {
       return _generateVoidListenerMethod(method, annotation);
@@ -150,7 +164,11 @@ class SocketBuilder extends sg.GeneratorForAnnotation<SocketIO> {
     }
   }
 
-  Code _generateUnifiedListenerBody(String genericType, String event, String dataProcessingStrategy) {
+  Code _generateUnifiedListenerBody(
+    String genericType,
+    String event,
+    String dataProcessingStrategy,
+  ) {
     return Code('''
       const eventName = '$event';
       final controller = StreamController<$genericType>();
@@ -170,27 +188,39 @@ class SocketBuilder extends sg.GeneratorForAnnotation<SocketIO> {
     ''');
   }
 
-  Method _generateVoidListenerMethod(MethodElement method, SocketIOListener annotation) {
+  Method _generateVoidListenerMethod(
+    MethodElement method,
+    SocketIOListener annotation,
+  ) {
     return Method(
       (b) => b
         ..name = method.name
         ..returns = refer('Stream<void>')
         ..annotations.add(refer('override'))
-        ..body = _generateUnifiedListenerBody('void', annotation.event, 'controller.add(null);'),
+        ..body = _generateUnifiedListenerBody(
+            'void', annotation.event, 'controller.add(null);'),
     );
   }
 
-  Method _generateDynamicListenerMethod(MethodElement method, SocketIOListener annotation) {
+  Method _generateDynamicListenerMethod(
+    MethodElement method,
+    SocketIOListener annotation,
+  ) {
     return Method(
       (b) => b
         ..name = method.name
         ..returns = refer('Stream<dynamic>')
         ..annotations.add(refer('override'))
-        ..body = _generateUnifiedListenerBody('dynamic', annotation.event, 'controller.add(data);'),
+        ..body = _generateUnifiedListenerBody(
+            'dynamic', annotation.event, 'controller.add(data);'),
     );
   }
 
-  Method _generatePrimitiveListenerMethod(MethodElement method, SocketIOListener annotation, String genericType) {
+  Method _generatePrimitiveListenerMethod(
+    MethodElement method,
+    SocketIOListener annotation,
+    String genericType,
+  ) {
     return Method(
       (b) => b
         ..name = method.name
@@ -206,16 +236,25 @@ class SocketBuilder extends sg.GeneratorForAnnotation<SocketIO> {
     );
   }
 
-  Method _generateListListenerMethod(MethodElement method, SocketIOListener annotation, String genericType) {
+  Method _generateListListenerMethod(
+    MethodElement method,
+    SocketIOListener annotation,
+    String genericType,
+  ) {
     final listGenericType = genericType.substring(5, genericType.length - 1);
-    final isPrimitiveList = _isPrimitiveTypeName(listGenericType) || listGenericType == 'dynamic' || listGenericType == 'Map<String, dynamic>';
+    final isPrimitiveList = _isPrimitiveTypeName(listGenericType) ||
+        listGenericType == 'dynamic' ||
+        listGenericType == 'Map<String, dynamic>';
     return Method(
       (b) => b
         ..name = method.name
         ..returns = refer('Stream<$genericType>')
         ..annotations.add(refer('override'))
-        ..body = _generateUnifiedListenerBody(genericType, annotation.event, isPrimitiveList
-            ? '''
+        ..body = _generateUnifiedListenerBody(
+            genericType,
+            annotation.event,
+            isPrimitiveList
+                ? '''
           if (data is List) {
             try {
               final result = data.cast<$listGenericType>().toList();
@@ -227,7 +266,7 @@ class SocketBuilder extends sg.GeneratorForAnnotation<SocketIO> {
             controller.addError(ArgumentError('Expected List but got \${data.runtimeType}'));
           }
         '''
-            : '''
+                : '''
           if (data is List) {
             try {
               final result = data.map((item) {
@@ -248,7 +287,11 @@ class SocketBuilder extends sg.GeneratorForAnnotation<SocketIO> {
     );
   }
 
-  Method _generateTypedListenerMethod(MethodElement method, SocketIOListener annotation, String genericType) {
+  Method _generateTypedListenerMethod(
+    MethodElement method,
+    SocketIOListener annotation,
+    String genericType,
+  ) {
     return Method(
       (b) => b
         ..name = method.name
@@ -268,16 +311,25 @@ class SocketBuilder extends sg.GeneratorForAnnotation<SocketIO> {
     );
   }
 
-  Method _generateEmitterMethod(MethodElement method, SocketIOEmitter annotation) {
-    if (method.parameters.isEmpty) {
+  Method _generateEmitterMethod(
+    MethodElement method,
+    SocketIOEmitter annotation,
+  ) {
+    if (method.formalParameters.isEmpty) {
       throw sg.InvalidGenerationSourceError(
         'SocketIOEmitter methods must have at least one parameter',
         element: method,
       );
     }
-    final parameter = method.parameters.first;
+    final parameter = method.formalParameters.first;
+    if (parameter.name == null) {
+      throw sg.InvalidGenerationSourceError(
+        'Parameter name cannot be null',
+        element: method,
+      );
+    }
     final parameterType = parameter.type.toString();
-    final parameterTypeNoNullability = parameter.type.getDisplayString(withNullability: false);
+    final parameterTypeNoNullability = parameter.type.getDisplayString();
     final isPrimitive = parameterTypeNoNullability == 'String' ||
         parameterTypeNoNullability == 'bool' ||
         parameterTypeNoNullability == 'int' ||
@@ -297,7 +349,7 @@ class SocketBuilder extends sg.GeneratorForAnnotation<SocketIO> {
         ..requiredParameters.add(
           Parameter(
             (b) => b
-              ..name = parameter.name
+              ..name = parameter.name!
               ..type = refer(parameterType),
           ),
         )
