@@ -1,4 +1,4 @@
-import 'package:analyzer/dart/element/element.dart';
+import 'package:analyzer/dart/element/element2.dart';
 import 'package:build/build.dart';
 import 'package:code_builder/code_builder.dart';
 import 'package:dart_style/dart_style.dart';
@@ -14,11 +14,11 @@ class SocketBuilder extends sg.GeneratorForAnnotation<SocketIO> {
 
   @override
   String generateForAnnotatedElement(
-    Element element,
+    Element2 element,
     sg.ConstantReader annotation,
     BuildStep buildStep,
   ) {
-    if (element is! ClassElement) {
+    if (element is! ClassElement2) {
       throw sg.InvalidGenerationSourceError(
         'SocketIO annotation can only be applied to classes',
         element: element,
@@ -32,7 +32,7 @@ class SocketBuilder extends sg.GeneratorForAnnotation<SocketIO> {
       );
     }
 
-    final className = element.name;
+    final className = element.name3;
     if (className == null) {
       throw sg.InvalidGenerationSourceError(
         'Class name cannot be null',
@@ -55,7 +55,7 @@ class SocketBuilder extends sg.GeneratorForAnnotation<SocketIO> {
     );
 
     // Process methods
-    for (final method in element.methods) {
+    for (final method in element.methods2) {
       if (method.isStatic || method.kind == ElementKind.CONSTRUCTOR) continue;
 
       final socketListener = _getSocketListenerAnnotation(method);
@@ -94,8 +94,7 @@ class SocketBuilder extends sg.GeneratorForAnnotation<SocketIO> {
       b
         ..directives.add(
           Directive.partOf(
-            '${buildStep.inputId.pathSegments.last.replaceAll('.dart', '')}.dart',
-          ),
+              '${buildStep.inputId.pathSegments.last.replaceAll('.dart', '')}.dart'),
         )
         ..body.add(classBuilder);
     });
@@ -111,11 +110,11 @@ class SocketBuilder extends sg.GeneratorForAnnotation<SocketIO> {
     return formatter.format('$header$code');
   }
 
-  SocketIOListener? _getSocketListenerAnnotation(MethodElement method) {
-    for (final annotation in method.metadata.annotations) {
-      final element = annotation.element;
-      if (element is ConstructorElement &&
-          element.enclosingElement.name == 'SocketIOListener') {
+  SocketIOListener? _getSocketListenerAnnotation(MethodElement2 method) {
+    for (final annotation in method.metadata2.annotations) {
+      final element = annotation.element2;
+      if (element is ConstructorElement2 &&
+          element.enclosingElement2.name3 == 'SocketIOListener') {
         final reader = sg.ConstantReader(annotation.computeConstantValue());
         return SocketIOListener(reader.read('event').stringValue);
       }
@@ -123,11 +122,11 @@ class SocketBuilder extends sg.GeneratorForAnnotation<SocketIO> {
     return null;
   }
 
-  SocketIOEmitter? _getSocketEmitterAnnotation(MethodElement method) {
-    for (final annotation in method.metadata.annotations) {
-      final element = annotation.element;
-      if (element is ConstructorElement &&
-          element.enclosingElement.name == 'SocketIOEmitter') {
+  SocketIOEmitter? _getSocketEmitterAnnotation(MethodElement2 method) {
+    for (final annotation in method.metadata2.annotations) {
+      final element = annotation.element2;
+      if (element is ConstructorElement2 &&
+          element.enclosingElement2.name3 == 'SocketIOEmitter') {
         final reader = sg.ConstantReader(annotation.computeConstantValue());
         return SocketIOEmitter(reader.read('event').stringValue);
       }
@@ -136,9 +135,7 @@ class SocketBuilder extends sg.GeneratorForAnnotation<SocketIO> {
   }
 
   Method _generateListenerMethod(
-    MethodElement method,
-    SocketIOListener annotation,
-  ) {
+      MethodElement2 method, SocketIOListener annotation) {
     final returnType = method.returnType;
     if (!returnType.toString().startsWith('Stream<')) {
       throw sg.InvalidGenerationSourceError(
@@ -189,26 +186,29 @@ class SocketBuilder extends sg.GeneratorForAnnotation<SocketIO> {
   }
 
   Method _generateVoidListenerMethod(
-    MethodElement method,
+    MethodElement2 method,
     SocketIOListener annotation,
   ) {
     return Method(
       (b) => b
-        ..name = method.name
+        ..name = method.name3
         ..returns = refer('Stream<void>')
         ..annotations.add(refer('override'))
         ..body = _generateUnifiedListenerBody(
-            'void', annotation.event, 'controller.add(null);'),
+          'void',
+          annotation.event,
+          'controller.add(null);',
+        ),
     );
   }
 
   Method _generateDynamicListenerMethod(
-    MethodElement method,
+    MethodElement2 method,
     SocketIOListener annotation,
   ) {
     return Method(
       (b) => b
-        ..name = method.name
+        ..name = method.name3
         ..returns = refer('Stream<dynamic>')
         ..annotations.add(refer('override'))
         ..body = _generateUnifiedListenerBody(
@@ -217,13 +217,13 @@ class SocketBuilder extends sg.GeneratorForAnnotation<SocketIO> {
   }
 
   Method _generatePrimitiveListenerMethod(
-    MethodElement method,
+    MethodElement2 method,
     SocketIOListener annotation,
     String genericType,
   ) {
     return Method(
       (b) => b
-        ..name = method.name
+        ..name = method.name3
         ..returns = refer('Stream<$genericType>')
         ..annotations.add(refer('override'))
         ..body = _generateUnifiedListenerBody(genericType, annotation.event, '''
@@ -237,7 +237,7 @@ class SocketBuilder extends sg.GeneratorForAnnotation<SocketIO> {
   }
 
   Method _generateListListenerMethod(
-    MethodElement method,
+    MethodElement2 method,
     SocketIOListener annotation,
     String genericType,
   ) {
@@ -247,7 +247,7 @@ class SocketBuilder extends sg.GeneratorForAnnotation<SocketIO> {
         listGenericType == 'Map<String, dynamic>';
     return Method(
       (b) => b
-        ..name = method.name
+        ..name = method.name3
         ..returns = refer('Stream<$genericType>')
         ..annotations.add(refer('override'))
         ..body = _generateUnifiedListenerBody(
@@ -288,13 +288,13 @@ class SocketBuilder extends sg.GeneratorForAnnotation<SocketIO> {
   }
 
   Method _generateTypedListenerMethod(
-    MethodElement method,
+    MethodElement2 method,
     SocketIOListener annotation,
     String genericType,
   ) {
     return Method(
       (b) => b
-        ..name = method.name
+        ..name = method.name3
         ..returns = refer('Stream<$genericType>')
         ..annotations.add(refer('override'))
         ..body = _generateUnifiedListenerBody(genericType, annotation.event, '''
@@ -312,7 +312,7 @@ class SocketBuilder extends sg.GeneratorForAnnotation<SocketIO> {
   }
 
   Method _generateEmitterMethod(
-    MethodElement method,
+    MethodElement2 method,
     SocketIOEmitter annotation,
   ) {
     if (method.formalParameters.isEmpty) {
@@ -322,7 +322,7 @@ class SocketBuilder extends sg.GeneratorForAnnotation<SocketIO> {
       );
     }
     final parameter = method.formalParameters.first;
-    if (parameter.name == null) {
+    if (parameter.name3 == null) {
       throw sg.InvalidGenerationSourceError(
         'Parameter name cannot be null',
         element: method,
@@ -339,17 +339,17 @@ class SocketBuilder extends sg.GeneratorForAnnotation<SocketIO> {
     final isMapOrList = parameterTypeNoNullability.startsWith('Map<') ||
         parameterTypeNoNullability.startsWith('List<');
     final emitArgument = (isPrimitive || isMapOrList)
-        ? parameter.name
-        : '${parameter.name}.toJson()';
+        ? parameter.name3
+        : '${parameter.name3}.toJson()';
     return Method(
       (b) => b
-        ..name = method.name
+        ..name = method.name3
         ..returns = refer('void')
         ..annotations.add(refer('override'))
         ..requiredParameters.add(
           Parameter(
             (b) => b
-              ..name = parameter.name!
+              ..name = parameter.name3!
               ..type = refer(parameterType),
           ),
         )
